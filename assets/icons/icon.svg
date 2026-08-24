@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Фон -->
+  <rect width="512" height="512" rx="100" fill="#0f172a"/>
+  
+  <!-- Щит -->
+  <path d="M256 50 L400 110 L400 250 C400 370 256 470 256 470 C256 470 112 370 112 250 L112 110 Z" 
+        fill="#1e293b" stroke="#ef4444" stroke-width="10"/>
+  
+  <!-- Внутренний щит -->
+  <path d="M256 90 L370 140 L370 260 C370 350 256 420 256 420 C256 420 142 350 142 260 L142 140 Z" 
+        fill="#0f172a" stroke="#f97316" stroke-width="4"/>
+  
+  <!-- Меч -->
+  <rect x="246" y="140" width="20" height="180" fill="#e2e8f0" rx="3"/>
+  <polygon points="256,120 270,160 242,160" fill="#fbbf24" stroke="#ef4444" stroke-width="2"/>
+  <rect x="240" y="300" width="32" height="12" fill="#f97316" rx="2"/>
+  <rect x="242" y="315" width="28" height="8" fill="#ef4444" rx="2"/>
+  
+  <!-- Надпись ЧОП -->
+  <text x="256" y="440" text-anchor="middle" fill="#ef4444" 
+        font-family="Arial, sans-serif" font-weight="bold" font-size="36">
+    ЧОП
+  </text>
+</svg>
