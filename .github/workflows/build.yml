@@ -20,13 +20,19 @@ jobs:
         run: |
           npm install -g expo-cli
           npm install
-          npx expo install
+          
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
           
       - name: Build Android APK
-        run: npx expo build:android --non-interactive
+        run: npx eas build -p android --profile preview --non-interactive
         
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: chop-app
-          path: *.apk
+          path: build-*.apk
