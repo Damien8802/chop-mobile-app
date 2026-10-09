@@ -1,13 +1,30 @@
 {
   "expo": {
-    ...
-    "icon": "./assets/icons/icon.svg",
-    ...
+    "name": "BS Security",
+    "slug": "bs-security",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ru.businessstack.security"
+    },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icons/icon.svg",
+        "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#0f172a"
-      }
+      },
+      "package": "ru.businessstack.security",
+      "versionCode": 1
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }
