@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,49 +6,155 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Vibration,
+  Animated,
 } from 'react-native';
+import { Audio } from 'expo-av';
 
 export default function MainScreen() {
-  const [isAlert, setIsAlert] = useState(false);
   const [isOnShift, setIsOnShift] = useState(false);
+  const [isAlert, setIsAlert] = useState(false);
+  const [sound, setSound] = useState(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const stats = [
-    { label: 'Сотрудников', value: '3', icon: '👤' },
-    { label: 'Объектов', value: '2', icon: '🏢' },
-    { label: 'Активных тревог', value: '0', icon: '🚨' },
-    { label: 'На смене', value: isOnShift ? '1' : '0', icon: '🟢' },
-  ];
+  useEffect(() => {
+    if (isAlert) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.15,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isAlert]);
 
-  const handleAlert = () => {
-    setIsAlert(!isAlert);
+  const playAlarm = async () => {
+    try {
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        require('../../assets/alarm.mp3'),
+        { shouldPlay: true, isLooping: true }
+      );
+      setSound(newSound);
+    } catch (e) {
+      console.log('Звук не найден, используем вибрацию');
+      Vibration.vibrate([0, 500, 200, 500], true);
+    }
+  };
+
+  const stopAlarm = async () => {
+    if (sound) {
+      try {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+      } catch (e) {}
+      setSound(null);
+    }
+    Vibration.cancel();
+  };
+
+  const handleAlert = async () => {
     if (!isAlert) {
+      setIsAlert(true);
+      await playAlarm();
       Alert.alert(
         '🚨 ТРЕВОГА!',
         'Сигнал отправлен диспетчеру и ближайшим сотрудникам.',
-        [{ text: 'OK' }]
+        [{ text: 'ОСТАНОВИТЬ', onPress: stopAlert }]
       );
+    } else {
+      stopAlert();
     }
+  };
+
+  const stopAlert = async () => {
+    setIsAlert(false);
+    await stopAlarm();
   };
 
   const handleShift = () => {
     if (isOnShift) {
-      Alert.alert('Выход со смены', 'Вы вышли со смены.', [{ text: 'OK' }]);
+      Alert.alert('Выход со смены', 'Вы вышли со смены.', [
+        {
+          text: 'OK',
+          onPress: async () => {
+            await stopAlarm();
+            setIsAlert(false);
+            setIsOnShift(false);
+          },
+        },
+      ]);
     } else {
       Alert.alert('Вход на смену', 'Вы вошли на смену. Удачи!', [
-        { text: 'OK' },
+        { text: 'OK', onPress: () => setIsOnShift(true) },
       ]);
     }
-    setIsOnShift(!isOnShift);
   };
+
+  useEffect(() => {
+    return () => {
+      if (sound) sound.unloadAsync();
+      Vibration.cancel();
+    };
+  }, [sound]);
+
+  // ========== ЭКРАН 1. Не на смене ==========
+  if (!isOnShift) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.logo}>🛡️</Text>
+        <Text style={styles.title}>BS SECURITY</Text>
+        <Text style={styles.subtitle}>Мобильное приложение для ЧОП</Text>
+
+        <TouchableOpacity
+          style={styles.shiftButtonIn}
+          onPress={handleShift}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.shiftButtonText}>✅ ВОЙТИ НА СМЕНУ</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.hintText}>
+          После входа появится тревожная кнопка и карта
+        </Text>
+
+        <Text style={styles.footer}>
+          BS Security — модуль для ЧОП{'\n'}© 2026 Business Stack
+        </Text>
+      </View>
+    );
+  }
+
+  // ========== ЭКРАН 2. На смене ==========
+  const stats = [
+    { label: 'Сотрудников', value: '3', icon: '👤' },
+    { label: 'Объектов', value: '2', icon: '🏢' },
+    { label: 'Активных тревог', value: isAlert ? '1' : '0', icon: '🚨' },
+    { label: 'На смене', value: '1', icon: '🟢' },
+  ];
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>🛡️ BS SECURITY</Text>
-      <Text style={styles.subtitle}>
-        Мобильное приложение для ЧОП — контроль охраны
-      </Text>
+      <Text style={styles.subtitle}>Вы на смене с 14:00</Text>
 
-      {/* Счётчики */}
+      <TouchableOpacity
+        style={styles.shiftButtonOut}
+        onPress={handleShift}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.shiftButtonText}>🚪 ВЫЙТИ СО СМЕНЫ</Text>
+      </TouchableOpacity>
+
       <View style={styles.statsGrid}>
         {stats.map((s, i) => (
           <View key={i} style={styles.statCard}>
@@ -59,62 +165,48 @@ export default function MainScreen() {
         ))}
       </View>
 
-      {/* Кнопка вход/выход со смены */}
-      <TouchableOpacity
-        style={[
-          styles.shiftButton,
-          isOnShift ? styles.shiftButtonOut : styles.shiftButtonIn,
-        ]}
-        onPress={handleShift}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.shiftButtonText}>
-          {isOnShift ? '🚪 ВЫЙТИ СО СМЕНЫ' : '✅ ВОЙТИ НА СМЕНУ'}
+      <View style={[styles.alertBox, isAlert && styles.alertBoxActive]}>
+        <Text style={styles.alertTitle}>
+          {isAlert ? '🚨 ТРЕВОГА АКТИВНА!' : '🚨 ТРЕВОЖНАЯ КНОПКА'}
         </Text>
-        {isOnShift && (
-          <Text style={styles.shiftButtonSub}>
-            Вы на смене с 14:00
-          </Text>
-        )}
-      </TouchableOpacity>
-
-      {/* Тревожная кнопка */}
-      <View style={styles.alertBox}>
-        <Text style={styles.alertTitle}>🚨 ТРЕВОЖНАЯ КНОПКА</Text>
         <Text style={styles.alertDesc}>
-          Нажмите в экстренной ситуации — сигнал мгновенно получат диспетчер и
-          ближайшие сотрудники
+          {isAlert
+            ? 'Сигнал отправлен. Нажмите ещё раз, чтобы остановить.'
+            : 'Нажмите в экстренной ситуации — сигнал получат диспетчер и сотрудники'}
         </Text>
-        <TouchableOpacity
-          style={[styles.alertButton, isAlert && styles.alertButtonActive]}
-          onPress={handleAlert}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.alertButtonText}>🚨{'\n'}ТРЕВОГА</Text>
-        </TouchableOpacity>
+
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+          <TouchableOpacity
+            style={[styles.alertButton, isAlert && styles.alertButtonActive]}
+            onPress={handleAlert}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.alertButtonText}>
+              {isAlert ? '🛑\nСТОП' : '🚨\nТРЕВОГА'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+
         <View style={styles.statusRow}>
           <Text style={styles.statusText}>🟢 1 сотрудник в зоне</Text>
-          <Text style={styles.statusText}>📡 Сигнал: готов</Text>
+          <Text style={[styles.statusText, isAlert && styles.statusTextAlert]}>
+            📡 Сигнал: {isAlert ? 'АКТИВЕН' : 'готов'}
+          </Text>
         </View>
       </View>
 
-      {/* Карта (заглушка) */}
       <View style={styles.mapBox}>
-        <Text style={styles.mapPlaceholder}>
-          🗺️ Карта объектов и сотрудников
-        </Text>
+        <Text style={styles.mapPlaceholder}>🗺️ Карта объектов и сотрудников</Text>
         <View style={styles.mapFake}>
           <Text style={styles.mapFakeText}>📍 Объект: Краснодар Галерея</Text>
           <Text style={styles.mapFakeText}>📍 Объект: ТЦ Озмал (Шоссе 15)</Text>
           <Text style={styles.mapFakeText}>👤 Ваня — на объекте</Text>
           <Text style={styles.mapFakeText}>👤 Петя — в пути</Text>
+          <Text style={styles.mapFakeText}>👤 Саша — свободен</Text>
         </View>
-        <Text style={styles.mapSubtext}>
-          (полноценная карта будет добавлена позже)
-        </Text>
+        <Text style={styles.mapSubtext}>(полноценная карта будет позже)</Text>
       </View>
 
-      {/* Заглушки под модули */}
       <View style={styles.moduleGrid}>
         <View style={styles.moduleCard}>
           <Text style={styles.moduleIcon}>👥</Text>
@@ -146,24 +238,66 @@ export default function MainScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
+  container: { padding: 16, backgroundColor: '#0f172a', paddingBottom: 40 },
+  centerContainer: {
+    flex: 1,
     backgroundColor: '#0f172a',
-    paddingBottom: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
+  logo: { fontSize: 80, marginBottom: 10 },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
     color: '#ffffff',
     textAlign: 'center',
-    marginTop: 10,
     letterSpacing: 1,
+    marginTop: 10,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#94a3b8',
     textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 30,
+  },
+  hintText: {
+    color: '#64748b',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  shiftButtonIn: {
+    backgroundColor: '#16a34a',
+    borderRadius: 14,
+    paddingVertical: 20,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+    marginTop: 20,
+    shadowColor: '#16a34a',
+    shadowOpacity: 0.7,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
+  },
+  shiftButtonOut: {
+    backgroundColor: '#dc2626',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
     marginBottom: 20,
+    shadowColor: '#dc2626',
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+  shiftButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    letterSpacing: 1,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -182,46 +316,8 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   statIcon: { fontSize: 22, marginBottom: 4 },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#f97316',
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  shiftButton: {
-    borderRadius: 14,
-    paddingVertical: 18,
-    alignItems: 'center',
-    marginBottom: 20,
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
-  },
-  shiftButtonIn: {
-    backgroundColor: '#16a34a',
-    shadowColor: '#16a34a',
-  },
-  shiftButtonOut: {
-    backgroundColor: '#dc2626',
-    shadowColor: '#dc2626',
-  },
-  shiftButtonText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 16,
-    letterSpacing: 1,
-  },
-  shiftButtonSub: {
-    color: '#fee2e2',
-    fontSize: 11,
-    marginTop: 4,
-  },
+  statValue: { fontSize: 24, fontWeight: 'bold', color: '#f97316' },
+  statLabel: { fontSize: 11, color: '#94a3b8', marginTop: 2, textAlign: 'center' },
   alertBox: {
     backgroundColor: '#1e293b',
     borderRadius: 16,
@@ -231,18 +327,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     alignItems: 'center',
   },
-  alertTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#ef4444',
-    marginBottom: 6,
+  alertBoxActive: {
+    borderColor: '#ef4444',
+    backgroundColor: '#450a0a',
   },
-  alertDesc: {
-    fontSize: 11,
-    color: '#cbd5e1',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
+  alertTitle: { fontSize: 17, fontWeight: 'bold', color: '#ef4444', marginBottom: 6 },
+  alertDesc: { fontSize: 11, color: '#cbd5e1', textAlign: 'center', marginBottom: 16 },
   alertButton: {
     backgroundColor: '#dc2626',
     borderRadius: 100,
@@ -251,15 +341,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#dc2626',
-    shadowOpacity: 0.8,
+    shadowOpacity: 0.9,
     shadowRadius: 25,
     shadowOffset: { width: 0, height: 0 },
     elevation: 15,
   },
-  alertButtonActive: {
-    backgroundColor: '#991b1b',
-    shadowOpacity: 1,
-  },
+  alertButtonActive: { backgroundColor: '#7f1d1d' },
   alertButtonText: {
     color: '#ffffff',
     fontWeight: 'bold',
@@ -274,6 +361,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   statusText: { color: '#22c55e', fontSize: 11 },
+  statusTextAlert: { color: '#ef4444', fontWeight: 'bold' },
   mapBox: {
     backgroundColor: '#1e293b',
     borderRadius: 16,
@@ -296,17 +384,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
-  mapFakeText: {
-    color: '#cbd5e1',
-    fontSize: 12,
-    marginBottom: 6,
-  },
-  mapSubtext: {
-    color: '#64748b',
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 8,
-  },
+  mapFakeText: { color: '#cbd5e1', fontSize: 12, marginBottom: 6 },
+  mapSubtext: { color: '#64748b', fontSize: 11, textAlign: 'center', marginTop: 8 },
   moduleGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -324,20 +403,7 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   moduleIcon: { fontSize: 26, marginBottom: 6 },
-  moduleTitle: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  moduleDesc: {
-    color: '#94a3b8',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  footer: {
-    color: '#475569',
-    fontSize: 10,
-    textAlign: 'center',
-    marginTop: 20,
-  },
+  moduleTitle: { color: '#ffffff', fontWeight: 'bold', fontSize: 13 },
+  moduleDesc: { color: '#94a3b8', fontSize: 11, marginTop: 2 },
+  footer: { color: '#475569', fontSize: 10, textAlign: 'center', marginTop: 30 },
 });

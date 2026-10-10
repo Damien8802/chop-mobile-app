@@ -9,19 +9,30 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0f172a"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "ru.businessstack.security"
+      "backgroundColor": "#000000"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundColor": "#0f172a"
+        "backgroundColor": "#000000"
       },
       "package": "ru.businessstack.security",
       "versionCode": 1
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ru.businessstack.security"
     },
     "web": {
       "favicon": "./assets/favicon.png"
