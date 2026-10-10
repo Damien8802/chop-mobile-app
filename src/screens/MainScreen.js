@@ -9,13 +9,14 @@ import {
   Vibration,
   Animated,
 } from 'react-native';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 
 export default function MainScreen() {
   const [isOnShift, setIsOnShift] = useState(false);
   const [isAlert, setIsAlert] = useState(false);
-  const [sound, setSound] = useState(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const player = useAudioPlayer(require('../../assets/alarm.mp3'));
 
   useEffect(() => {
     if (isAlert) {
@@ -38,34 +39,27 @@ export default function MainScreen() {
     }
   }, [isAlert]);
 
-  const playAlarm = async () => {
+  const playAlarm = () => {
     try {
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        require('../../assets/alarm.mp3'),
-        { shouldPlay: true, isLooping: true }
-      );
-      setSound(newSound);
+      player.loop = true;
+      player.play();
     } catch (e) {
-      console.log('Звук не найден, используем вибрацию');
-      Vibration.vibrate([0, 500, 200, 500], true);
+      console.log('Звук не сработал', e);
     }
+    Vibration.vibrate([0, 500, 200, 500], true);
   };
 
-  const stopAlarm = async () => {
-    if (sound) {
-      try {
-        await sound.stopAsync();
-        await sound.unloadAsync();
-      } catch (e) {}
-      setSound(null);
-    }
+  const stopAlarm = () => {
+    try {
+      player.pause();
+    } catch (e) {}
     Vibration.cancel();
   };
 
-  const handleAlert = async () => {
+  const handleAlert = () => {
     if (!isAlert) {
       setIsAlert(true);
-      await playAlarm();
+      playAlarm();
       Alert.alert(
         '🚨 ТРЕВОГА!',
         'Сигнал отправлен диспетчеру и ближайшим сотрудникам.',
@@ -76,9 +70,9 @@ export default function MainScreen() {
     }
   };
 
-  const stopAlert = async () => {
+  const stopAlert = () => {
     setIsAlert(false);
-    await stopAlarm();
+    stopAlarm();
   };
 
   const handleShift = () => {
@@ -86,8 +80,8 @@ export default function MainScreen() {
       Alert.alert('Выход со смены', 'Вы вышли со смены.', [
         {
           text: 'OK',
-          onPress: async () => {
-            await stopAlarm();
+          onPress: () => {
+            stopAlarm();
             setIsAlert(false);
             setIsOnShift(false);
           },
@@ -102,10 +96,9 @@ export default function MainScreen() {
 
   useEffect(() => {
     return () => {
-      if (sound) sound.unloadAsync();
       Vibration.cancel();
     };
-  }, [sound]);
+  }, []);
 
   // ========== ЭКРАН 1. Не на смене ==========
   if (!isOnShift) {
